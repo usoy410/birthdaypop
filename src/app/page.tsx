@@ -1,65 +1,110 @@
-import Image from "next/image";
+"use client";
+
+import { motion } from "framer-motion";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { PartyPopper, User, Cake } from "lucide-react";
 
 export default function Home() {
+  const [roomCode, setRoomCode] = useState("");
+  const router = useRouter();
+
+  const handleJoin = (role: "guest" | "host") => {
+    if (!roomCode.trim()) {
+      alert("Please enter a Room Code!");
+      return;
+    }
+    router.push(`/room/${roomCode}?role=${role}`);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[var(--background)] px-4">
+      {/* Dynamic Background Elements */}
+      <div className="absolute inset-0 z-0">
+        {[...Array(12)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute rounded-full bg-white/20 blur-xl"
+            initial={{
+              width: Math.random() * 100 + 50,
+              height: Math.random() * 100 + 50,
+              x: Math.random() * 100 + "%",
+              y: Math.random() * 100 + "%",
+              opacity: 0.3,
+            }}
+            animate={{
+              y: ["-10%", "110%"],
+              x: [Math.random() * 100 + "%", Math.random() * 100 + "%"],
+            }}
+            transition={{
+              duration: Math.random() * 10 + 10,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Main Content Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="z-10 w-full max-w-md overflow-hidden rounded-3xl border border-white/30 bg-white/10 p-8 shadow-2xl backdrop-blur-md"
+      >
+        <div className="mb-8 text-center">
+          <motion.div
+            animate={{ rotate: [0, 10, -10, 0] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="mb-4 inline-block rounded-2xl bg-white/20 p-4"
+          >
+            <PartyPopper className="h-10 w-10 text-white" />
+          </motion.div>
+          <h1 className="text-4xl font-bold tracking-tight text-white">
+            BirthdayPop
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="mt-2 text-indigo-100">
+            "As you blow out your candles, always remember the <b>One</b> who gave you the breath to do so!"
           </p>
+          <p className="text-white italic text-xs font-semibold">-Arjay</p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-indigo-100">
+              Room Code
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. PARTY2026"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+              className="w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-lg font-semibold text-white placeholder-white/40 outline-none ring-indigo-400 transition-all focus:ring-2"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <button
+              onClick={() => handleJoin("guest")}
+              className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-4 transition-all hover:bg-white/20 active:scale-95"
+            >
+              <div className="rounded-xl bg-blue-400/30 p-3 group-hover:bg-blue-400/50">
+                <User className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white">Join as Guest</span>
+            </button>
+
+            <button
+              onClick={() => handleJoin("host")}
+              className="group flex flex-col items-center justify-center gap-3 rounded-2xl border border-white/20 bg-white/10 p-4 transition-all hover:bg-white/20 active:scale-95"
+            >
+              <div className="rounded-xl bg-pink-400/30 p-3 group-hover:bg-pink-400/50">
+                <Cake className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white">Host Party</span>
+            </button>
+          </div>
         </div>
-      </main>
-    </div>
+      </motion.div>
+    </main>
   );
 }
