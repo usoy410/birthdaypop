@@ -8,4 +8,10 @@ export interface Message {
     createdAt: Timestamp | null;
 }
 
+export interface Room {
+    id: string;
+    themeId: string;
+    createdAt: Timestamp | null;
+}
+
 export type UserRole = "guest" | "host";

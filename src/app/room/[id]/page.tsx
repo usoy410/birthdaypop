@@ -1,18 +1,19 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useState, use } from "react";
+import { useState, use, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { Send, ArrowLeft, Copy, Check, Download, Share2, Music, QrCode } from "lucide-react";
+import { collection, addDoc, serverTimestamp, doc, onSnapshot, updateDoc, setDoc } from "firebase/firestore";
+import { Send, ArrowLeft, Copy, Check, Download, Share2, Music, QrCode, Palette, Zap } from "lucide-react";
 import Link from "next/link";
 import { useMessages } from "@/hooks/useMessages";
 import { Balloon } from "@/components/Balloon";
 import { StickyNote } from "@/components/StickyNote";
-import { UserRole } from "@/types";
+import { UserRole, Room as RoomType } from "@/types";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import confetti from "canvas-confetti";
+import { getTheme, THEMES } from "@/lib/themes";
 
 export default function Room({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -23,9 +24,48 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     const [sent, setSent] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Theme State
+    const [roomData, setRoomData] = useState<RoomType | null>(null);
+    const theme = getTheme(roomData?.themeId);
+
     // Music States
     const [musicUrl, setMusicUrl] = useState("");
     const [showMusicInput, setShowMusicInput] = useState(false);
+    const [showThemePicker, setShowThemePicker] = useState(false);
+
+    // Sync Room Theme
+    useEffect(() => {
+        const roomRef = doc(db, "rooms", id);
+        const unsubscribe = onSnapshot(roomRef, (snapshot) => {
+            if (snapshot.exists()) {
+                setRoomData({ id: snapshot.id, ...snapshot.data() } as RoomType);
+            } else if (role === "host") {
+                // Initialize room for host if it doesn't exist
+                setDoc(roomRef, {
+                    themeId: THEMES[0].id,
+                    createdAt: serverTimestamp()
+                }, { merge: true }).catch(err => console.error("Failed to initialize room:", err));
+            }
+        });
+        return () => unsubscribe();
+    }, [id, role]);
+
+    // Handle theme's default music
+    useEffect(() => {
+        if (theme.defaultMusic && !musicUrl) {
+            setMusicUrl(theme.defaultMusic);
+        }
+    }, [theme.id]);
+
+    const updateTheme = async (themeId: string) => {
+        try {
+            const roomRef = doc(db, "rooms", id);
+            await setDoc(roomRef, { themeId }, { merge: true });
+            setShowThemePicker(false);
+        } catch (err) {
+            console.error("Failed to update theme:", err);
+        }
+    };
 
     const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/room/${id}?role=guest` : "";
 
@@ -60,9 +100,12 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
         const poppedCount = messages.filter(m => m.popped).length;
         if ((poppedCount + 1) % 10 === 0) {
             confetti({
-                particleCount: 200,
+                particleCount: 250,
                 spread: 160,
-                origin: { y: 0.3 }
+                origin: { y: 0.3 },
+                colors: ['#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#ffffff'],
+                gravity: 1.2,
+                scalar: 1.2
             });
         }
     };
@@ -86,12 +129,19 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     };
 
     return (
-        <main className="relative min-h-screen overflow-hidden bg-[var(--background)] text-white">
+        <main
+            className="relative min-h-screen overflow-hidden transition-colors duration-1000 text-white"
+            style={{ backgroundColor: theme.colors.background }}
+        >
             {/* Background Image - Host Only */}
             {role === "host" && (
-                <div
-                    className="absolute inset-0 z-0 opacity-90 pointer-events-none bg-center bg-no-repeat bg-cover"
-                    style={{ backgroundImage: 'url("/birthday-cake.png")' }}
+                <motion.div
+                    key={theme.backgroundImg}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.4 }}
+                    transition={{ duration: 2 }}
+                    className="absolute inset-0 z-0 pointer-events-none bg-center bg-no-repeat bg-cover"
+                    style={{ backgroundImage: `url("${theme.backgroundImg}")` }}
                 />
             )}
 
@@ -111,13 +161,41 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                     <span>Exit</span>
                 </Link>
                 <div className="flex flex-col items-center">
-                    <h2 className="text-sm font-medium text-zinc-500">Room</h2>
+                    <h2 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{theme.name}</h2>
                     <p className="font-bold tracking-widest">{id}</p>
                 </div>
 
                 <div className="flex items-center gap-4">
                     {role === "host" && (
                         <div className="flex items-center gap-2">
+                            {/* Theme Switcher */}
+                            <div className="group relative">
+                                <button
+                                    onClick={() => setShowThemePicker(!showThemePicker)}
+                                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-95 bg-white/10 hover:bg-white/20 text-indigo-400`}
+                                >
+                                    <Palette className="h-5 w-5" />
+                                </button>
+                                {showThemePicker && (
+                                    <div className="absolute right-0 mt-3 w-64 rounded-3xl border border-white/10 bg-zinc-900 p-4 shadow-2xl animate-in fade-in zoom-in duration-200 origin-top-right z-[60]">
+                                        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-zinc-500">Select Atmosphere</p>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {THEMES.map((t) => (
+                                                <button
+                                                    key={t.id}
+                                                    onClick={() => updateTheme(t.id)}
+                                                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-left transition-all ${theme.id === t.id ? "bg-indigo-600 text-white" : "bg-white/5 hover:bg-white/10 text-zinc-300"
+                                                        }`}
+                                                >
+                                                    <span className="text-sm font-semibold">{t.name}</span>
+                                                    {theme.id === t.id && <Zap className="h-4 w-4 fill-current" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             {/* Music Button */}
                             <div className="group relative">
                                 <button
@@ -139,7 +217,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                                         />
                                         {musicUrl && (
                                             <p className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
-                                                <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse" />
+                                                <span className="flex h-1.5 w-1.5 rounded-full bg-green-400 animate-pulse" />
                                                 Music Active
                                             </p>
                                         )}
@@ -153,7 +231,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                                 className="group relative flex h-10 items-center gap-2 rounded-xl bg-white/10 px-3 hover:bg-white/20 transition-all active:scale-95"
                             >
                                 {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-zinc-400 group-hover:text-white" />}
-                                <span className="hidden text-sm font-medium md:block">{copied ? "Copied!" : "Copy Link"}</span>
+                                <span className="hidden text-sm font-medium lg:block">{copied ? "Copied!" : "Copy Link"}</span>
                             </button>
 
                             {/* QR Code Popover */}
@@ -169,7 +247,6 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                                     </div>
 
                                     <div className="mb-4 flex justify-center rounded-2xl bg-white p-3 shadow-inner">
-                                        {/* Canvas for downloading */}
                                         <div className="hidden">
                                             <QRCodeCanvas id="qr-canvas" value={inviteLink} size={512} level="H" includeMargin />
                                         </div>
@@ -192,7 +269,6 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                             </div>
                         </div>
                     )}
-                    <div className="w-12 md:hidden" /> {/* Spacer for mobile */}
                 </div>
             </header>
 
@@ -212,7 +288,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                 <div className="relative h-screen w-full pt-20 z-10 pointer-events-none">
                     <AnimatePresence>
                         {messages.filter(m => !m.popped).map((msg) => (
-                            <Balloon key={msg.id} message={msg} onPop={handleBalloonPop} />
+                            <Balloon key={msg.id} message={msg} onPop={handleBalloonPop} themeId={theme.id} />
                         ))}
                     </AnimatePresence>
                     <div className="absolute inset-x-0 bottom-8 text-center text-zinc-500">

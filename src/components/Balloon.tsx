@@ -7,21 +7,15 @@ import { db } from "@/lib/firebase";
 import { Message } from "@/types";
 import confetti from "canvas-confetti";
 
-const BALLOON_COLORS = [
-    "from-pink-400 to-pink-600",
-    "from-blue-400 to-blue-600",
-    "from-purple-400 to-purple-600",
-    "from-yellow-300 to-yellow-500",
-    "from-green-400 to-green-600",
-    "from-orange-400 to-orange-600",
-    "from-red-400 to-red-600",
-    "from-cyan-400 to-cyan-600",
-];
+import { getTheme } from "@/lib/themes";
 
-export function Balloon({ message, onPop }: { message: Message; onPop?: () => void }) {
+export function Balloon({ message, onPop, themeId }: { message: Message; onPop?: () => void; themeId?: string }) {
     const [isPopped, setIsPopped] = useState(false);
     const [isExploded, setIsExploded] = useState(false);
-    const color = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+
+    const theme = getTheme(themeId);
+    const palette = theme.colors.balloonPalettes[Math.floor(Math.random() * theme.colors.balloonPalettes.length)];
+    const color = palette.join(' ');
 
     // Random physics-like values
     const floatDuration = Math.random() * 10 + 12;
@@ -37,7 +31,7 @@ export function Balloon({ message, onPop }: { message: Message; onPop?: () => vo
             particleCount: 100,
             spread: 70,
             origin: { y: 0.6 },
-            colors: [color.split('-')[1], color.split('-')[3]] // Simple approximation
+            colors: [palette[0].replace('from-', '#'), '#ffffff'] // Basic conversion or could use theme colors
         });
 
         // Trigger milestone callback
