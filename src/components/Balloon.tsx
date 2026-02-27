@@ -18,7 +18,7 @@ const BALLOON_COLORS = [
     "from-cyan-400 to-cyan-600",
 ];
 
-export function Balloon({ message }: { message: Message }) {
+export function Balloon({ message, onPop }: { message: Message; onPop?: () => void }) {
     const [isPopped, setIsPopped] = useState(false);
     const [isExploded, setIsExploded] = useState(false);
     const color = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
@@ -39,6 +39,9 @@ export function Balloon({ message }: { message: Message }) {
             origin: { y: 0.6 },
             colors: [color.split('-')[1], color.split('-')[3]] // Simple approximation
         });
+
+        // Trigger milestone callback
+        if (onPop) onPop();
 
         // Brief delay for pop animation before revealing message
         setTimeout(() => setIsExploded(true), 150);

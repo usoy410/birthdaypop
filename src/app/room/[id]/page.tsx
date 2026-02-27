@@ -5,14 +5,14 @@ import { useState, use } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { Send, ArrowLeft, Copy, Check, Download, Share2 } from "lucide-react";
+import { Send, ArrowLeft, Copy, Check, Download, Share2, Music, QrCode } from "lucide-react";
 import Link from "next/link";
 import { useMessages } from "@/hooks/useMessages";
 import { Balloon } from "@/components/Balloon";
 import { StickyNote } from "@/components/StickyNote";
 import { UserRole } from "@/types";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
-import { QrCode } from "lucide-react";
+import confetti from "canvas-confetti";
 
 export default function Room({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params);
@@ -23,7 +23,17 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
     const [sent, setSent] = useState(false);
     const [copied, setCopied] = useState(false);
 
+    // Music States
+    const [musicUrl, setMusicUrl] = useState("");
+    const [showMusicInput, setShowMusicInput] = useState(false);
+
     const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/room/${id}?role=guest` : "";
+
+    const getYoutubeEmbedUrl = (url: string) => {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}?autoplay=1` : null;
+    };
 
     const copyInviteLink = async () => {
         try {
@@ -46,6 +56,17 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
         }
     };
 
+    const handleBalloonPop = () => {
+        const poppedCount = messages.filter(m => m.popped).length;
+        if ((poppedCount + 1) % 10 === 0) {
+            confetti({
+                particleCount: 200,
+                spread: 160,
+                origin: { y: 0.3 }
+            });
+        }
+    };
+
     const sendWish = async () => {
         if (!wish.trim()) return;
         try {
@@ -55,6 +76,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                 popped: false,
                 createdAt: serverTimestamp(),
             });
+
             setWish("");
             setSent(true);
             setTimeout(() => setSent(false), 3000);
@@ -95,32 +117,102 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
 
                 <div className="flex items-center gap-4">
                     {role === "host" && (
-                        <div className="group relative">
-                            <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all">
-                                <QrCode className="h-5 w-5" />
+                        <div className="flex items-center gap-2">
+                            {/* Music Button */}
+                            <div className="group relative">
+                                <button
+                                    onClick={() => setShowMusicInput(!showMusicInput)}
+                                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all active:scale-95 ${musicUrl ? "bg-indigo-600 text-white" : "bg-white/10 hover:bg-white/20 text-zinc-400"
+                                        }`}
+                                >
+                                    <Music className="h-5 w-5" />
+                                </button>
+                                {showMusicInput && (
+                                    <div className="absolute right-0 mt-3 w-72 rounded-3xl border border-white/10 bg-zinc-900 p-4 shadow-2xl animate-in fade-in zoom-in duration-200 origin-top-right z-[60]">
+                                        <p className="mb-2 text-xs font-bold uppercase tracking-widest text-zinc-500">Party Vibe</p>
+                                        <input
+                                            type="text"
+                                            placeholder="YouTube Link (e.g. lofi hip hop)"
+                                            value={musicUrl}
+                                            onChange={(e) => setMusicUrl(e.target.value)}
+                                            className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500"
+                                        />
+                                        {musicUrl && (
+                                            <p className="mt-2 text-[10px] text-green-400 flex items-center gap-1">
+                                                <div className="h-1 w-1 rounded-full bg-green-400 animate-pulse" />
+                                                Music Active
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Copy Link Button */}
+                            <button
+                                onClick={copyInviteLink}
+                                className="group relative flex h-10 items-center gap-2 rounded-xl bg-white/10 px-3 hover:bg-white/20 transition-all active:scale-95"
+                            >
+                                {copied ? <Check className="h-4 w-4 text-green-400" /> : <Copy className="h-4 w-4 text-zinc-400 group-hover:text-white" />}
+                                <span className="hidden text-sm font-medium md:block">{copied ? "Copied!" : "Copy Link"}</span>
                             </button>
+
                             {/* QR Code Popover */}
-                            <div className="absolute right-0 mt-2 hidden group-hover:block w-48 rounded-2xl bg-white p-4 shadow-2xl animate-in fade-in zoom-in duration-200 origin-top-right">
-                                <p className="mb-2 text-center text-[10px] font-bold uppercase text-zinc-500">Scan to Join</p>
-                                <div className="flex justify-center bg-white p-2 rounded-lg">
-                                    <QRCodeSVG
-                                        value={typeof window !== 'undefined' ? `${window.location.origin}/room/${id}?role=guest` : ""}
-                                        size={128}
-                                    />
+                            <div className="group relative">
+                                <button className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/10 hover:bg-white/20 transition-all active:scale-95">
+                                    <QrCode className="h-5 w-5" />
+                                </button>
+
+                                <div className="absolute right-0 mt-3 hidden group-hover:block w-64 rounded-3xl border border-white/10 bg-zinc-900 p-6 shadow-2xl animate-in fade-in zoom-in duration-200 origin-top-right z-[60]">
+                                    <div className="mb-4 text-center">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Scan or Share</p>
+                                        <h3 className="text-lg font-bold">Party Invite</h3>
+                                    </div>
+
+                                    <div className="mb-4 flex justify-center rounded-2xl bg-white p-3 shadow-inner">
+                                        {/* Canvas for downloading */}
+                                        <div className="hidden">
+                                            <QRCodeCanvas id="qr-canvas" value={inviteLink} size={512} level="H" includeMargin />
+                                        </div>
+                                        <QRCodeSVG value={inviteLink} size={160} level="H" />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-2">
+                                        <button
+                                            onClick={downloadQR}
+                                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/10 py-3 text-sm font-semibold hover:bg-white/20 transition-all"
+                                        >
+                                            <Download className="h-4 w-4" />
+                                            Download Image
+                                        </button>
+                                        <div className="mt-2 text-center">
+                                            <p className="text-[10px] text-zinc-500 truncate">{inviteLink}</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <p className="mt-2 text-center text-[8px] text-zinc-400 break-all">{typeof window !== 'undefined' ? `${window.location.origin}/room/${id}?role=guest` : ""}</p>
                             </div>
                         </div>
                     )}
-                    <div className="w-12 md:w-auto" /> {/* Spacer */}
+                    <div className="w-12 md:hidden" /> {/* Spacer for mobile */}
                 </div>
             </header>
+
+            {/* Hidden Music Player */}
+            {role === "host" && musicUrl && getYoutubeEmbedUrl(musicUrl) && (
+                <div className="hidden">
+                    <iframe
+                        width="0"
+                        height="0"
+                        src={getYoutubeEmbedUrl(musicUrl) || ""}
+                        allow="autoplay"
+                    />
+                </div>
+            )}
 
             {role === "host" ? (
                 <div className="relative h-screen w-full pt-20 z-10 pointer-events-none">
                     <AnimatePresence>
                         {messages.filter(m => !m.popped).map((msg) => (
-                            <Balloon key={msg.id} message={msg} />
+                            <Balloon key={msg.id} message={msg} onPop={handleBalloonPop} />
                         ))}
                     </AnimatePresence>
                     <div className="absolute inset-x-0 bottom-8 text-center text-zinc-500">
@@ -138,6 +230,7 @@ export default function Room({ params }: { params: Promise<{ id: string }> }) {
                             placeholder="Happy Birthday! You're the best!"
                             className="h-40 w-full rounded-2xl border border-white/10 bg-white/5 p-4 text-white outline-none ring-indigo-500 focus:ring-2"
                         />
+
                         <button
                             onClick={sendWish}
                             disabled={sent}
