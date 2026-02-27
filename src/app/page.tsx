@@ -5,11 +5,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PartyPopper, User, Cake } from "lucide-react";
 
+import { UserRole } from "@/types";
+
 export default function Home() {
   const [roomCode, setRoomCode] = useState("");
   const router = useRouter();
 
-  const handleJoin = (role: "guest" | "host") => {
+  const handleJoin = (role: UserRole) => {
     if (!roomCode.trim()) {
       alert("Please enter a Room Code!");
       return;
